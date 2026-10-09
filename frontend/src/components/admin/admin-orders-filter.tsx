@@ -15,13 +15,28 @@ export default function AdminFilterOrders() {
     const { updateFilter, clearFilters } = useActionCreators(ordersActions)
     const filterOrderOption = useSelector(ordersSelector.selectFilterOption)
 
-    const handleFilter = (filters: Record<string, any>) => {
-        dispatch(updateFilter({ ...filters, status: filters.status.value }))
+    const handleFilter = (filters: Record<string, unknown>) => {
+        const status =
+            typeof filters.status === 'object' &&
+            filters.status !== null &&
+            'value' in filters.status
+                ? String((filters.status as { value: string }).value)
+                : String(filters.status ?? '')
+        dispatch(
+            updateFilter({
+                ...filters,
+                status: status as '' | import('@types').StatusType,
+            })
+        )
         const queryParams: { [key: string]: string } = {}
         Object.entries(filters).forEach(([key, value]) => {
             if (value) {
                 queryParams[key] =
-                    typeof value === 'object' ? value.value : value.toString()
+                    typeof value === 'object' &&
+                    value !== null &&
+                    'value' in value
+                        ? String((value as { value: string }).value)
+                        : String(value)
             }
         })
         setSearchParams(queryParams)
