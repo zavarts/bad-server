@@ -1,15 +1,14 @@
 import { Joi, celebrate } from 'celebrate'
 import { Types } from 'mongoose'
 
-// eslint-disable-next-line no-useless-escape
-export const phoneRegExp = /^(\+\d+)?(?:\s|-?|\(?\d+\)?)+$/
+// Без вложенных квантификаторов — защита от ReDoS
+export const phoneRegExp = /^\+?[0-9()\s-]{10,20}$/
 
 export enum PaymentType {
     Card = 'card',
     Online = 'online',
 }
 
-// валидация id
 export const validateOrderBody = celebrate({
     body: Joi.object().keys({
         items: Joi.array()
@@ -21,6 +20,7 @@ export const validateOrderBody = celebrate({
                     return helpers.message({ custom: 'Невалидный id' })
                 })
             )
+            .required()
             .messages({
                 'array.empty': 'Не указаны товары',
             }),
@@ -35,21 +35,22 @@ export const validateOrderBody = celebrate({
         email: Joi.string().email().required().messages({
             'string.empty': 'Не указан email',
         }),
-        phone: Joi.string().required().pattern(phoneRegExp).messages({
+        phone: Joi.string().required().min(10).max(20).pattern(phoneRegExp).messages({
             'string.empty': 'Не указан телефон',
+            'string.max': 'Телефон слишком длинный',
+            'string.pattern.base': 'Некорректный формат телефона',
         }),
-        address: Joi.string().required().messages({
+        address: Joi.string().required().max(200).messages({
             'string.empty': 'Не указан адрес',
+            'string.max': 'Адрес слишком длинный',
         }),
         total: Joi.number().required().messages({
             'string.empty': 'Не указана сумма заказа',
         }),
-        comment: Joi.string().optional().allow(''),
+        comment: Joi.string().optional().allow('').max(1000),
     }),
 })
 
-// валидация товара.
-// name и link - обязательные поля, name - от 2 до 30 символов, link - валидный url
 export const validateProductBody = celebrate({
     body: Joi.object().keys({
         title: Joi.string().required().min(2).max(30).messages({

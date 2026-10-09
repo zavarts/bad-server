@@ -33,10 +33,12 @@ export type ApiListResponse<Type> = {
 class Api {
     private readonly baseUrl: string
     protected options: RequestInit
+    private csrfToken = ''
 
     constructor(baseUrl: string, options: RequestInit = {}) {
         this.baseUrl = baseUrl
         this.options = {
+            credentials: 'include',
             headers: {
                 ...((options.headers as object) ?? {}),
             },
@@ -53,15 +55,34 @@ class Api {
                   )
     }
 
+    private async ensureCsrfToken() {
+        if (this.csrfToken) {
+            return
+        }
+        const response = await fetch(`${this.baseUrl}/auth/csrf-token`, {
+            method: 'GET',
+            credentials: 'include',
+        })
+        const data = await this.handleResponse<{ csrfToken: string }>(response)
+        this.csrfToken = data.csrfToken
+    }
+
     protected async request<T>(endpoint: string, options: RequestInit) {
         try {
+            await this.ensureCsrfToken()
             const res = await fetch(`${this.baseUrl}${endpoint}`, {
                 ...this.options,
                 ...options,
+                credentials: 'include',
+                headers: {
+                    ...this.options.headers,
+                    ...options.headers,
+                    'X-CSRF-Token': this.csrfToken,
+                },
             })
             return await this.handleResponse<T>(res)
-        } catch (error) {
-            return Promise.reject(error)
+        } catch (_error) {
+            return Promise.reject(_error)
         }
     }
 
@@ -78,7 +99,7 @@ class Api {
     ) => {
         try {
             return await this.request<T>(endpoint, options)
-        } catch (error) {
+        } catch (_error) {
             const refreshData = await this.refreshToken()
             if (!refreshData.success) {
                 return Promise.reject(refreshData)
